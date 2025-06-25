@@ -14,7 +14,7 @@ from cat.log import log
 # Settings
 
 # File type
-class WFormat(Enum):
+class C_WFormat(Enum):
     mp3 = "mp3"
     wav = "wav"
     pmc = "pmc"
@@ -94,9 +94,9 @@ class VoiceSelect(Enum):
 class kokoroCatSettings(BaseModel):
     # Select
     base_url: str = "http://host.docker.internal:8880/v1"
-    Voice: VoiceSelect = VoiceSelect.af_bella
-    custom_voice: str = "if_sara"
-
+    Voice: VoiceSelect = VoiceSelect.if_sara
+    custom_voice: str = "if_sara*0.5 + jf_nezumi*0.2 + jf_tebukuro*0.2 + jm_kumo*0.1"
+    WFormat: C_WFormat = C_WFormat.mp3
 
 # Give your settings schema to the Cat.
 @plugin
@@ -139,7 +139,7 @@ def generate_kokoro_speech(text, output_file, model="kokoro", voice="af_sky", ba
         with client.audio.speech.with_streaming_response.create(
             model=model,
             voice=voice,  
-            input=text
+            input=text,
             response_format=WFormat
         ) as response:
             response.stream_to_file(output_file)
