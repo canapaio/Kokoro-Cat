@@ -8,8 +8,17 @@ from threading import Thread
 import re
 import shlex
 from openai import OpenAI
+from cat.log import log
+
 
 # Settings
+
+# File type
+class WFormat(Enum):
+    mp3 = "mp3"
+    wav = "wav"
+    pmc = "pmc"
+
 
 # Select box
 class VoiceSelect(Enum):
@@ -80,11 +89,13 @@ class VoiceSelect(Enum):
     zm_yunxi = "zm_yunxi"
     zm_yunxia = "zm_yunxia"
     zm_yunyang = "zm_yunyang"
+    custom = "custom"
 
 class kokoroCatSettings(BaseModel):
     # Select
     base_url: str = "http://host.docker.internal:8880/v1"
     Voice: VoiceSelect = VoiceSelect.af_bella
+    custom_voice: str = "if_sara"
 
 
 # Give your settings schema to the Cat.
@@ -96,12 +107,12 @@ def settings_schema():
 def remove_special_characters(text):
     try:
         # Define the pattern to match special characters excluding punctuation, single and double quotation marks, and Cyrillic characters
-        pattern = r'[^a-zA-Z0-9\s.,!?\'"а-яА-Я]'  # Matches any character that is not alphanumeric, whitespace, or specific punctuation, including Cyrillic characters
+        pattern = r'[a-zA-Z0-9\s.,!?\'"а-яА-ЯÀ-ÿÄäÖöÜüßÀÈÉÌÒÙàèéìòù]'  # Matches any character that is not alphanumeric, whitespace, or specific punctuation, including Cyrillic characters
         
         # Replace special characters with an empty string
         clean_text = re.sub(pattern, '', text)
     except Exception as e:
-        print(f"Kokoro Cat plugin: Error occurred cleaning text: {str(e)}")
+        log.error(f"Kokoro Cat plugin: Error occurred cleaning text: {str(e)}")
         clean_text = text
     
     return clean_text
@@ -110,28 +121,30 @@ def run_kokoro_process(text, output_filename, cat, base_url, model="kokoro"):
     # Load settings to get the selected voice
     settings = cat.mad_hatter.get_plugin().load_settings()
     selected_voice = settings.get("Voice", VoiceSelect.af_sky)
+    WFormat = settings.get("WFormat")
 
     try:
-        generate_kokoro_speech(text, output_filename, model=model, voice=selected_voice, base_url=base_url)
-        kokoro_audio_player = f"<audio controls autoplay><source src='{output_filename}' type='audio/wav'>Your browser does not support the audio tag.</audio>"
+        generate_kokoro_speech(text, output_filename, model=model, voice=selected_voice, base_url=base_url, WFormat)
+        kokoro_audio_player = f"<audio controls autoplay><source src='{output_filename}' type='audio/wav'>Your browser does not support the audio tag.</audio><a href='{output_filename}' target='_blank'>Download Audio</a>"
         cat.send_ws_message(content=kokoro_audio_player, msg_type='chat')
     except Exception as e:
-        print(f"Kokoro Cat plugin: Error occurred: {str(e)}")
+        log.error(f"Kokoro Cat plugin: Error occurred: {str(e)}")
 
 
 
 # Generate the audio file using the Kokoro API
-def generate_kokoro_speech(text, output_file, model="kokoro", voice="af_sky", base_url="http://host.docker.internal:8880/v1"):
+def generate_kokoro_speech(text, output_file, model="kokoro", voice="af_sky", base_url="http://host.docker.internal:8880/v1", WFormat):
     client = OpenAI(base_url=base_url, api_key="not-needed")
     try:
         with client.audio.speech.with_streaming_response.create(
             model=model,
             voice=voice,  
             input=text
+            response_format=WFormat
         ) as response:
             response.stream_to_file(output_file)
     except Exception as e:
-        print(f"Kokoro Cat plugin: Error occurred: {str(e)}")
+        log.error(f"Kokoro Cat plugin: Error occurred: {str(e)}")
 
 
 # Hook function that runs before sending a message
@@ -148,17 +161,21 @@ def before_cat_sends_message(final_output, cat):
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
 
-    # Construct the output file name with the formatted date and time
-    output_filename = os.path.join(folder_path, f"voice_{formatted_datetime}.wav")
-
-    # Get the message sent by LLM
-    message = final_output["content"]
-
     # Load the settings
     settings = cat.mad_hatter.get_plugin().load_settings()
     kokoro_base_url = settings.get("base_url")
     if kokoro_base_url is None:
         kokoro_base_url = "http://host.docker.internal:8880/v1"
+    WFormat = settings.get("WFormat")
+    if WFormat is None:
+        WFormat = "mp3"
+    # Construct the output file name with the formatted date and time
+
+    output_filename = os.path.join(folder_path, f"voice_{formatted_datetime}.{WFormat}")
+
+    # Get the message sent by LLM
+    message = final_output["content"]
+
 
     clean_message = remove_special_characters(message)
    
