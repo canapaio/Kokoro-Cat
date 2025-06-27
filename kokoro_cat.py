@@ -22,6 +22,7 @@ class C_WFormat(Enum):
 
 # Select box
 class VoiceSelect(Enum):
+    custom = "custom"
     af_alloy = "af_alloy"
     af_aoede = "af_aoede"
     af_bella = "af_bella"
@@ -89,12 +90,11 @@ class VoiceSelect(Enum):
     zm_yunxi = "zm_yunxi"
     zm_yunxia = "zm_yunxia"
     zm_yunyang = "zm_yunyang"
-    custom = "custom"
 
 class kokoroCatSettings(BaseModel):
     # Select
     base_url: str = "http://host.docker.internal:8880/v1"
-    Voice: VoiceSelect = VoiceSelect.if_sara
+    Voice: VoiceSelect = VoiceSelect.custom
     custom_voice: str = "if_sara(1)+jf_nezumi(1)+jf_tebukuro(2)"
     WFormat: C_WFormat = C_WFormat.mp3
     VSpeed: float = 1.1
