@@ -17,11 +17,12 @@ from cat.log import log
 class C_WFormat(Enum):
     mp3 = "mp3"
     wav = "wav"
-    pmc = "pmc"
+    pmc = "pcm"
 
 
 # Select box
 class VoiceSelect(Enum):
+    custom = "custom"
     af_alloy = "af_alloy"
     af_aoede = "af_aoede"
     af_bella = "af_bella"
@@ -89,14 +90,14 @@ class VoiceSelect(Enum):
     zm_yunxi = "zm_yunxi"
     zm_yunxia = "zm_yunxia"
     zm_yunyang = "zm_yunyang"
-    custom = "custom"
 
 class kokoroCatSettings(BaseModel):
     # Select
     base_url: str = "http://host.docker.internal:8880/v1"
-    Voice: VoiceSelect = VoiceSelect.if_sara
-    custom_voice: str = "if_sara*0.5 + jf_nezumi*0.2 + jf_tebukuro*0.2 + jm_kumo*0.1"
+    Voice: VoiceSelect = VoiceSelect.custom
+    custom_voice: str = "if_sara(1)+jf_alpha(1)+zf_xiaoxiao(1)+zf_xiaoyi(1)"
     WFormat: C_WFormat = C_WFormat.mp3
+    VSpeed: float = 1.1
 
 # Give your settings schema to the Cat.
 @plugin
@@ -106,26 +107,36 @@ def settings_schema():
 
 def remove_special_characters(text):
     try:
+        # First, handle apostrophes specifically to avoid pronunciation issues
+        # Remove all apostrophes to prevent mispronunciation
+        text = text.replace("'", "")
+        
         # Define the pattern to match special characters excluding punctuation, single and double quotation marks, and Cyrillic characters
-        pattern = r'[a-zA-Z0-9\s.,!?\'"а-яА-ЯÀ-ÿÄäÖöÜüßÀÈÉÌÒÙàèéìòù]'  # Matches any character that is not alphanumeric, whitespace, or specific punctuation, including Cyrillic characters
+        pattern = r'[^a-zA-Z0-9\s.,!?"а-яА-ЯÀ-ÿÄäÖöÜüßÀÈÉÌÒÙàèéìòù]'  # Matches any character that is not alphanumeric, whitespace, or specific punctuation, including Cyrillic characters
         
         # Replace special characters with an empty string
-        clean_text = re.sub(pattern, '', text)
+        clean_text = re.sub(pattern, ' ', text)
     except Exception as e:
         log.error(f"Kokoro Cat plugin: Error occurred cleaning text: {str(e)}")
         clean_text = text
-    
     return clean_text
 
 def run_kokoro_process(text, output_filename, cat, base_url, model="kokoro"):
     # Load settings to get the selected voice
     settings = cat.mad_hatter.get_plugin().load_settings()
-    selected_voice = settings.get("Voice", VoiceSelect.af_sky)
-    WFormat = settings.get("WFormat")
+    if settings.get("Voice") == "custom":
+        selected_voice = settings.get("custom_voice")
+    else: 
+        selected_voice = settings.get("Voice", VoiceSelect.if_sara)
+    
+    VSpeed =  settings.get("VSpeed", 1.1)
+    WFormat = settings.get("WFormat", "mp3")  # Default to mp3 if not set
+    log.info(f"Using WFormat: {WFormat}")
+    log.info(f"Using voice: {selected_voice}")
 
     try:
-        generate_kokoro_speech(text, output_filename, model=model, voice=selected_voice, base_url=base_url, WFormat)
-        kokoro_audio_player = f"<audio controls autoplay><source src='{output_filename}' type='audio/wav'>Your browser does not support the audio tag.</audio><a href='{output_filename}' target='_blank'>Download Audio</a>"
+        generate_kokoro_speech(text, output_filename, model=model, voice=selected_voice, base_url=base_url, WFormat=WFormat, VSpeed=VSpeed)
+        kokoro_audio_player = f"<audio controls autoplay><source src='{output_filename}' type='audio/{WFormat}'>Your browser does not support the audio tag.</audio><a href='{output_filename}' target='_blank'>Download Audio</a>"
         cat.send_ws_message(content=kokoro_audio_player, msg_type='chat')
     except Exception as e:
         log.error(f"Kokoro Cat plugin: Error occurred: {str(e)}")
@@ -133,13 +144,14 @@ def run_kokoro_process(text, output_filename, cat, base_url, model="kokoro"):
 
 
 # Generate the audio file using the Kokoro API
-def generate_kokoro_speech(text, output_file, model="kokoro", voice="af_sky", base_url="http://host.docker.internal:8880/v1", WFormat):
+def generate_kokoro_speech(text, output_file, model="kokoro", voice="if_sara", base_url="http://host.docker.internal:8880/v1", WFormat="mp3", VSpeed=1.1):
     client = OpenAI(base_url=base_url, api_key="not-needed")
     try:
         with client.audio.speech.with_streaming_response.create(
             model=model,
             voice=voice,  
             input=text,
+            speed=VSpeed,
             response_format=WFormat
         ) as response:
             response.stream_to_file(output_file)
