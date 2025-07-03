@@ -94,8 +94,8 @@ class VoiceSelect(Enum):
 class kokoroCatSettings(BaseModel):
     # Select
     base_url: str = "http://host.docker.internal:8880/v1"
-    Voice: VoiceSelect = VoiceSelect.custom
-    custom_voice: str = "if_sara(1)+jf_alpha(1)+zf_xiaoxiao(1)+zf_xiaoyi(1)"
+    Voice: VoiceSelect = VoiceSelect.if_sara
+    custom_voice: str = "if_sara*0.5 + jf_nezumi*0.2 + jf_tebukuro*0.2 + jm_kumo*0.1"
     WFormat: C_WFormat = C_WFormat.mp3
     VSpeed: float = 1.1
 
@@ -112,7 +112,7 @@ def remove_special_characters(text):
         text = text.replace("'", "")
         
         # Define the pattern to match special characters excluding punctuation, single and double quotation marks, and Cyrillic characters
-        pattern = r'[^a-zA-Z0-9\s.,!?"а-яА-ЯÀ-ÿÄäÖöÜüßÀÈÉÌÒÙàèéìòù]'  # Matches any character that is not alphanumeric, whitespace, or specific punctuation, including Cyrillic characters
+        pattern = r'[a-zA-Z0-9\s.,!?\'"а-яА-ЯÀ-ÿÄäÖöÜüßÀÈÉÌÒÙàèéìòù]'  # Matches any character that is not alphanumeric, whitespace, or specific punctuation, including Cyrillic characters
         
         # Replace special characters with an empty string
         clean_text = re.sub(pattern, ' ', text)
