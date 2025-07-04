@@ -110,7 +110,7 @@ def remove_special_characters(text):
         # First, handle apostrophes specifically to avoid pronunciation issues
         # Remove all apostrophes to prevent mispronunciation
         text = text.replace("'", "")
-        
+        text = text.lower()        
         # Define the pattern to match special characters excluding punctuation, single and double quotation marks, and Cyrillic characters
         pattern = r'[a-zA-Z0-9\s.,!?\'"а-яА-ЯÀ-ÿÄäÖöÜüßÀÈÉÌÒÙàèéìòù]'  # Matches any character that is not alphanumeric, whitespace, or specific punctuation, including Cyrillic characters
         
